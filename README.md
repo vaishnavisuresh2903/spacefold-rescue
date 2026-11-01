@@ -8,7 +8,7 @@
 ##  The Problem
 Deployable folding structures can transport shelters and equipment as compact packages that unfold on-site. A jammed hinge can interrupt the planned deployment sequence. Recovery requires identifying which movements remain mechanically possible and recognizing when the modeled constraints require deployment to stop.
 
-## 💡 Our Solution
+## Our Solution
 SpaceFold Rescue is an AI-guided simulation prototype that pairs the **Meta Model API** with a deterministic constraint checker. When a fault occurs, the AI interprets the structure’s state and proposes recovery sequences. The simulator checks those proposals against modeled joint limits and collision constraints before execution.
 
 ---
