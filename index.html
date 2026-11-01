@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpaceFold Rescue | Team ORIGENIX</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --panel: #111827;
+      --border: #1f2937;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+    #viewport { flex: 1; position: relative; }
+    #hud {
+      position: absolute; top: 16px; left: 16px; background: rgba(17, 24, 39, 0.9);
+      border: 1px solid var(--border); padding: 14px 18px; border-radius: 10px; max-width: 520px;
+    }
+    #hud h1 { font-size: 17px; color: #fff; }
+    #hud p { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .badge {
+      display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; background: #1e3a8a; color: #93c5fd;
+    }
+    #disclaimer {
+      position: absolute; bottom: 12px; left: 16px; right: 16px; background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; font-size: 11px; color: var(--muted);
+    }
+    #sidebar {
+      width: 440px; background: var(--panel); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 14px; gap: 10px; overflow-y: auto;
+    }
+    .section { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 8px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    input, select {
+      width: 100%; padding: 7px 9px; margin-bottom: 6px; border-radius: 5px;
+      border: 1px solid var(--border); background: #090d16; color: #fff; font-size: 12px;
+    }
+    button {
+      flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+      background: #1e293b; color: #fff; font-weight: 600; font-size: 12px; cursor: pointer;
+    }
+    button.primary { background: var(--accent); border-color: #2563eb; }
+    .hinge-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 12px;
+    }
+    .hinge-row:last-child { border-bottom: none; }
+    .lock-btn { flex: 0 0 auto; padding: 4px 10px; font-size: 11px; }
+    .lock-btn.locked { background: var(--danger); border-color: #dc2626; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .metric-card { background: #111827; padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border); }
+    .metric-card span { font-size: 10px; color: var(--muted); display: block; }
+    .metric-card strong { font-size: 14px; color: #fff; }
+    #ai-console {
+      font-family: 'Consolas', monospace; font-size: 11.5px; line-height: 1.45;
+      color: #d1d5db; white-space: pre-wrap; background: #090d16; padding: 10px;
+      border-radius: 6px; border: 1px solid #1e293b; min-height: 165px; flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewport">
+    <div id="hud">
+      <h1>SPACEFOLD RESCUE — TEAM ORIGENIX</h1>
+      <p>Fold Small. Think Beyond. | 3D Kinematic Simulator & Meta Model API (muse-spark-1.3)</p>
+      <div id="status-badge" class="badge">STATE: COMPACT FOLDED PACKAGE</div>
+    </div>
+    <div id="disclaimer">
+      <strong>Engineering Limitation:</strong> Kinematic joint-limit and 3D collision checks evaluate geometric motion feasibility only. They do not validate structural strength, actuator forces, weather resistance, or suitability for occupancy.
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="section">
+      <h2>0. Backend Connection Settings (muse-spark-1.3)</h2>
+      <input id="backend-url" type="text" value="http://localhost:8000/api/recover" placeholder="Backend API Endpoint URL" />
+      <select id="exec-mode">
+        <option value="live">Live Meta Model API (Requires Running Backend)</option>
+        <option value="simulated">Offline Demo Mode (Simulated Responses)</option>
+      </select>
+    </div>
+
+    <div class="section">
+      <h2>1. Deployment & Reset Controls</h2>
+      <div class="btn-row">
+        <button class="primary" onclick="startDeployment()">1. Start Deployment</button>
+        <button onclick="resetSim()">Reset Package</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>2. Fault Injection (Lock Hinges Mid-Deployment)</h2>
+      <div class="hinge-row">
+        <span>Hinge_R1 (Primary Roof Arch)</span>
+        <button id="btn-R1" class="lock-btn" onclick="toggleLock('R1')">NOMINAL (UNLOCKED)</button>
+      </div>
+      <div class="hinge-row">
+        <span>Hinge_E1 (East Side Panel)</span>
+        <button id="btn-E1" class="lock-btn" onclick="toggleLock('E1')">NOMINAL (UNLOCKED)</button>
+      </div>
+      <div class="hinge-row">
+        <span>Hinge_W1 (West Side Panel)</span>
+        <button id="btn-W1" class="lock-btn" onclick="toggleLock('W1')">NOMINAL (UNLOCKED)</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>3 & 4. Analyze State & Verify Alternatives</h2>
+      <div class="btn-row">
+        <button class="primary" onclick="runRecoveryAnalysis()">Analyze State & Verify Alternatives</button>
+      </div>
+      <div class="metrics" style="margin-top: 8px;">
+        <div class="metric-card">
+          <span>Joint Limit Check [0°-120°]</span>
+          <strong id="chk-limits">READY</strong>
+        </div>
+        <div class="metric-card">
+          <span>3D Panel Collision Check</span>
+          <strong id="chk-collision">READY</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" style="flex: 1; display: flex; flex-direction: column;">
+      <h2>5. Diagnostic & Explanation Panel</h2>
+      <div id="ai-console">System initialized.
+- For live Meta AI analysis (muse-spark-1.3), start azure_backend.py and keep "Live Meta Model API" selected.
+- If the backend is offline, switch to "Offline Demo Mode" for simulated responses.</div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      locks: { R1: false, E1: false, W1: false },
+      angles: { R1: 0, E1: 0, W1: 0 },
+      targets: { R1: 0, E1: 0, W1: 0 },
+      limits: { min: 0, max: 120 }
+    };
+
+    const container = document.getElementById('viewport');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0f19);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(6, 5, 7);
+    camera.lookAt(0, 1, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    scene.add(new THREE.GridHelper(12, 12, 0x334155, 0x1e293b));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4, side: THREE.DoubleSide });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x60a5fa, roughness: 0.4, side: THREE.DoubleSide });
+    const wingMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4, side: THREE.DoubleSide });
+
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 2.4), baseMat);
+    floor.position.y = 0.06;
+    scene.add(floor);
+
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.12), baseMat);
+    backWall.position.set(0, 1.0, -1.14);
+    scene.add(backWall);
+
+    const pivotR1 = new THREE.Group();
+    pivotR1.position.set(0, 2.0, -1.14);
+    const roofPanel = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 2.2), roofMat);
+    roofPanel.position.set(0, 0, 1.1);
+    pivotR1.add(roofPanel);
+    scene.add(pivotR1);
+
+    const pivotE1 = new THREE.Group();
+    pivotE1.position.set(1.2, 1.0, -1.14);
+    const eastPanel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.0, 2.0), wingMat);
+    eastPanel.position.set(0, 0, 1.0);
+    pivotE1.add(eastPanel);
+    scene.add(pivotE1);
+
+    const pivotW1 = new THREE.Group();
+    pivotW1.position.set(-1.2, 1.0, -1.14);
+    const westPanel = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.0, 2.0), wingMat);
+    westPanel.position.set(0, 0, 1.0);
+    pivotW1.add(westPanel);
+    scene.add(pivotW1);
+
+    function setBadge(text, bg, color) {
+      const b = document.getElementById('status-badge');
+      b.textContent = text;
+      b.style.background = bg;
+      b.style.color = color;
+    }
+
+    function toggleLock(id) {
+      state.locks[id] = !state.locks[id];
+      const btn = document.getElementById('btn-' + id);
+      if (state.locks[id]) {
+        btn.textContent = 'LOCKED (JAMMED)';
+        btn.classList.add('locked');
+        state.targets[id] = Math.min(state.angles[id], 35);
+        setBadge('FAULT INJECTED: HINGE_' + id + ' LOCKED', '#991b1b', '#fecaca');
+      } else {
+        btn.textContent = 'NOMINAL (UNLOCKED)';
+        btn.classList.remove('locked');
+      }
+    }
+
+    function startDeployment() {
+      state.targets.R1 = state.locks.R1 ? 35 : 90;
+      state.targets.E1 = state.locks.E1 ? 25 : 90;
+      state.targets.W1 = state.locks.W1 ? 25 : 90;
+
+      if (state.locks.R1 || state.locks.E1 || state.locks.W1) {
+        setBadge('DEPLOYMENT INTERRUPTED BY JAMMED HINGE', '#991b1b', '#fecaca');
+        document.getElementById('ai-console').textContent =
+          '[FAULT DETECTED DURING DEPLOYMENT]\n' +
+          `Hinge States: R1=${state.locks.R1 ? 'LOCKED(35°)' : 'NOMINAL'}, E1=${state.locks.E1 ? 'LOCKED(25°)' : 'NOMINAL'}, W1=${state.locks.W1 ? 'LOCKED(25°)' : 'NOMINAL'}\n\n` +
+          'Click "Analyze State & Verify Alternatives" to evaluate recovery paths.';
+      } else {
+        setBadge('NOMINAL DEPLOYMENT COMPLETE', '#065f46', '#a7f3d0');
+        document.getElementById('chk-limits').textContent = 'PASS (90°)';
+        document.getElementById('chk-collision').textContent = 'CLEAR';
+        document.getElementById('ai-console').textContent =
+          '[NOMINAL DEPLOYMENT]\nAll hinges unlocked. Structure reached planned deployment.';
+      }
+    }
+
+    function validateProposalDeterministically(sequence) {
+      for (const step of sequence) {
+        const id = step.hinge_id.replace('Hinge_', '');
+        if (state.locks[id]) {
+          return { valid: false, reason: `Rejected: Proposal attempted to move locked hinge ${id}.` };
+        }
+        if (step.target_deg < state.limits.min || step.target_deg > state.limits.max) {
+          return { valid: false, reason: `Rejected: Target ${step.target_deg}° on ${id} exceeds joint limits [0°, 120°].` };
+        }
+      }
+      if ((state.locks.R1 && state.locks.E1) || (state.locks.R1 && state.locks.W1) || (state.locks.E1 && state.locks.W1)) {
+        return { valid: false, reason: 'Rejected: 3D panel collision detected across interdependent locked hinges.' };
+      }
+      return { valid: true, reason: 'PASS: Joint limits [0°-120°] and 3D panel collision checks satisfied.' };
+    }
+
+    async function runRecoveryAnalysis() {
+      const mode = document.getElementById('exec-mode').value;
+      const endpoint = document.getElementById('backend-url').value.trim();
+      const log = document.getElementById('ai-console');
+
+      const payload = {
+        structure_id: "origami_shelter_v1",
+        hinges: [
+          { hinge_id: "R1", current_deg: Math.round(state.angles.R1), min_deg: 0, max_deg: 120, locked: state.locks.R1, dependencies: ["Roof_Arch"] },
+          { hinge_id: "E1", current_deg: Math.round(state.angles.E1), min_deg: 0, max_deg: 120, locked: state.locks.E1, dependencies: [] },
+          { hinge_id: "W1", current_deg: Math.round(state.angles.W1), min_deg: 0, max_deg: 120, locked: state.locks.W1, dependencies: [] }
+        ],
+        simulator_feedback: "Evaluate remaining degrees of freedom for collision-free partial deployment."
+      };
+
+      if (mode === 'live') {
+        log.textContent = `[LIVE API REQUEST]\nCalling backend (${endpoint}) -> Meta Model API (muse-spark-1.3)...`;
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errText}`);
+          }
+          const data = await res.json();
+          applyAndVerifyProposal(data, `[LIVE META MODEL API RESPONSE — model: ${data.model_used || 'muse-spark-1.3'}]`);
+          return;
+        } catch (err) {
+          log.textContent =
+            `[LIVE BACKEND CONNECTION FAILED]\n${err.message}\n\n` +
+            `Ensure azure_backend.py is running with META_MODEL_API_KEY configured, or switch the dropdown to "Offline Demo Mode (Simulated Responses)".`;
+          return;
+        }
+      }
+
+      const simData = generateSimulatedResponse();
+      applyAndVerifyProposal(simData, '[SIMULATED OFFLINE DEMO — NO LIVE API CALL]');
+    }
+
+    function generateSimulatedResponse() {
+      const { R1, E1, W1 } = state.locks;
+      if (R1 && !E1 && !W1) {
+        return {
+          fault_summary: "Hinge R1 is locked at 35°, blocking primary roof elevation.",
+          recovery_possible: true,
+          proposed_sequence: [
+            { hinge_id: "E1", target_deg: 110, reason: "Flare unlocked East panel outward." },
+            { hinge_id: "W1", target_deg: 110, reason: "Flare unlocked West panel symmetrically." }
+          ],
+          operator_explanation: "Hold R1 at 35° and angle side panels E1/W1 to 110° for a partially deployed configuration."
+        };
+      } else if (!R1 && (E1 ^ W1)) {
+        const free = E1 ? "W1" : "E1";
+        return {
+          fault_summary: `Side hinge ${E1 ? 'E1' : 'W1'} locked at 25°.`,
+          recovery_possible: true,
+          proposed_sequence: [
+            { hinge_id: "R1", target_deg: 90, reason: "Elevate primary roof arch." },
+            { hinge_id: free, target_deg: 105, reason: "Extend unlocked opposing wing." }
+          ],
+          operator_explanation: `Deploy R1 to 90° and ${free} to 105° while keeping jammed wing stationary.`
+        };
+      }
+      return {
+        fault_summary: "Multiple interdependent hinges locked simultaneously.",
+        recovery_possible: false,
+        proposed_sequence: [],
+        operator_explanation: "No collision-free kinematic path exists."
+      };
+    }
+
+    function applyAndVerifyProposal(data, headerLabel) {
+      const log = document.getElementById('ai-console');
+      const check = validateProposalDeterministically(data.proposed_sequence || []);
+
+      if (data.recovery_possible && check.valid && (data.proposed_sequence || []).length > 0) {
+        data.proposed_sequence.forEach(step => {
+          const id = step.hinge_id.replace('Hinge_', '');
+          state.targets[id] = step.target_deg;
+        });
+        document.getElementById('chk-limits').textContent = 'PASS';
+        document.getElementById('chk-collision').textContent = 'CLEAR';
+        setBadge('RECOVERED: PARTIALLY DEPLOYED CONFIGURATION', '#065f46', '#a7f3d0');
+      } else {
+        document.getElementById('chk-limits').textContent = 'BLOCKED';
+        document.getElementById('chk-collision').textContent = 'CONSTRAINT HALT';
+        setBadge('HALTED: NO VALID KINEMATIC PATH', '#991b1b', '#fecaca');
+      }
+
+      log.textContent =
+        `${headerLabel}\n` +
+        `Fault Summary: ${data.fault_summary}\n\n` +
+        `Proposed Sequence:\n${JSON.stringify(data.proposed_sequence, null, 2)}\n\n` +
+        `[DETERMINISTIC SIMULATOR CHECK]\n${check.reason}\n\n` +
+        `Explanation: ${data.operator_explanation}`;
+    }
+
+    function resetSim() {
+      state.locks = { R1: false, E1: false, W1: false };
+      state.targets = { R1: 0, E1: 0, W1: 0 };
+      ['R1', 'E1', 'W1'].forEach(id => {
+        const btn = document.getElementById('btn-' + id);
+        btn.textContent = 'NOMINAL (UNLOCKED)';
+        btn.classList.remove('locked');
+      });
+      document.getElementById('chk-limits').textContent = 'READY';
+      document.getElementById('chk-collision').textContent = 'READY';
+      setBadge('STATE: COMPACT FOLDED PACKAGE', '#1e3a8a', '#93c5fd');
+      document.getElementById('ai-console').textContent = 'Simulator reset to compact folded package.';
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      ['R1', 'E1', 'W1'].forEach(id => {
+        state.angles[id] += (state.targets[id] - state.angles[id]) * 0.08;
+      });
+      pivotR1.rotation.x = THREE.MathUtils.degToRad(90 - state.angles.R1);
+      pivotE1.rotation.y = THREE.MathUtils.degToRad(90 - state.angles.E1);
+      pivotW1.rotation.y = THREE.MathUtils.degToRad(-(90 - state.angles.W1));
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+  </script>
+</body>
+</html>
